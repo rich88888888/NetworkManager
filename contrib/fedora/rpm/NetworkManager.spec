@@ -379,9 +379,9 @@ Group: System Environment/Base
 Requires: %{name}%{?_isa} = %{epoch}:%{version}-%{release}
 
 %if 0%{?fedora} >= 29 || 0%{?rhel} >= 9
-Requires: wireless-regdb
+BuildRequires: wireless-regdb
 %else
-Requires: crda
+BuildRequires: crda
 %endif
 
 %if %{with iwd} && (0%{?fedora} > 24 || 0%{?rhel} > 7)
