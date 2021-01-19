@@ -6501,7 +6501,7 @@ nm_device_master_check_slave_physical_port(NMDevice *self, NMDevice *slave, NMLo
 }
 
 /* release all slaves */
-static void
+void
 nm_device_master_release_slaves(NMDevice *self)
 {
     NMDevicePrivate *   priv = NM_DEVICE_GET_PRIVATE(self);
