@@ -48,48 +48,76 @@ typedef enum {
     NM_NDISC_DHCP_LEVEL_MANAGED
 } NMNDiscDHCPLevel;
 
-/* we rely on the fact that NM_NDISC_INFINITY is the largest possible
- * time duration (G_MAXUINT32) and that the range of finite values
- * goes from 0 to G_MAXUINT32-1. */
-#define NM_NDISC_INFINITY G_MAXUINT32
+#define NM_NDISC_INFINITY_U32 ((uint32_t) -1)
 
-struct _NMNDiscGateway {
+/* It's important that this is G_MAXINT64, so that we can meaningfully do
+ * MIN(e1, e2) to find the minimum expiry time (and properly handle if any
+ * of them is infinity). */
+#define NM_NDISC_EXPIRY_INFINITY G_MAXINT64
+
+static inline gint64
+_nm_ndisc_lifetime_to_expiry(gint64 now_msec, guint32 lifetime)
+{
+    if (lifetime == NM_NDISC_INFINITY_U32)
+        return NM_NDISC_EXPIRY_INFINITY;
+    return now_msec + (((gint64) lifetime) * 1000);
+}
+
+static inline gint64
+_nm_ndisc_lifetime_from_expiry(gint64 now_msec, gint64 expiry_msec, gboolean ceil)
+{
+    gint64 diff;
+
+    if (expiry_msec == NM_NDISC_EXPIRY_INFINITY)
+        return NM_NDISC_INFINITY_U32;
+
+    /* we don't expect nor handle integer overflow. The time stamp and expiry should be significantly
+     * small so that it cannot happen. */
+
+    diff = expiry_msec - now_msec;
+
+    if (diff <= 0)
+        return 0;
+
+    if (ceil) {
+        /* we ceil towards the next second (thus extending the lifetime by up to 999 msec). */
+        diff += 999;
+    }
+
+    return NM_MIN(diff / 1000, (gint64)(G_MAXUINT32 - 1));
+}
+
+/*****************************************************************************/
+
+typedef struct _NMNDiscGateway {
     struct in6_addr    address;
-    guint32            timestamp;
-    guint32            lifetime;
+    gint64             expiry_msec;
     NMIcmpv6RouterPref preference;
-};
-typedef struct _NMNDiscGateway NMNDiscGateway;
+} NMNDiscGateway;
 
-struct _NMNDiscAddress {
+typedef struct _NMNDiscAddress {
     struct in6_addr address;
+    gint64          expiry_msec;
+    gint64          expiry_preferred_msec;
     guint8          dad_counter;
-    guint32         timestamp;
-    guint32         lifetime;
-    guint32         preferred;
-};
-typedef struct _NMNDiscAddress NMNDiscAddress;
+} NMNDiscAddress;
 
-struct _NMNDiscRoute {
+typedef struct _NMNDiscRoute {
     struct in6_addr    network;
-    guint8             plen;
     struct in6_addr    gateway;
-    guint32            timestamp;
-    guint32            lifetime;
+    gint64             expiry_msec;
     NMIcmpv6RouterPref preference;
-};
-typedef struct _NMNDiscRoute NMNDiscRoute;
+    guint8             plen;
+} NMNDiscRoute;
 
 typedef struct {
     struct in6_addr address;
-    guint32         timestamp;
-    guint32         lifetime;
+    gint64          expiry_msec;
 } NMNDiscDNSServer;
 
 typedef struct {
-    char *  domain;
-    guint32 timestamp;
-    guint32 lifetime;
+    char * domain;
+    gint64 expiry_msec;
 } NMNDiscDNSDomain;
 
 typedef enum {
@@ -113,6 +141,7 @@ typedef enum {
 } NMNDiscNodeType;
 
 #define NM_NDISC_MAX_ADDRESSES_DEFAULT                16
+#define NM_NDISC_MAX_RTR_SOLICITATION_DELAY           1 /* RFC4861 MAX_RTR_SOLICITATION_DELAY */
 #define NM_NDISC_ROUTER_SOLICITATIONS_DEFAULT         3 /* RFC4861 MAX_RTR_SOLICITATIONS */
 #define NM_NDISC_ROUTER_SOLICITATION_INTERVAL_DEFAULT 4 /* RFC4861 RTR_SOLICITATION_INTERVAL */
 #define NM_NDISC_ROUTER_ADVERTISEMENTS_DEFAULT        3 /* RFC4861 MAX_INITIAL_RTR_ADVERTISEMENTS */
