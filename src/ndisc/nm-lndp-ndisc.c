@@ -387,7 +387,6 @@ send_ra(NMNDisc *ndisc, GError **error)
 {
     NMLndpNDiscPrivate *     priv     = NM_LNDP_NDISC_GET_PRIVATE(ndisc);
     NMNDiscDataInternal *    rdata    = ndisc->rdata;
-    const gint64             now_msec = nm_utils_get_monotonic_timestamp_msec();
     int                      errsv;
     struct in6_addr *        addr;
     struct ndp_msg *         msg;
@@ -433,9 +432,9 @@ send_ra(NMNDisc *ndisc, GError **error)
         prefix->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_ONLINK;
         prefix->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_AUTO;
         prefix->nd_opt_pi_valid_time =
-            htonl(_nm_ndisc_lifetime_from_expiry(now_msec, address->expiry_msec, TRUE));
+            htonl(_nm_ndisc_lifetime_from_expiry(0, address->expiry_msec, TRUE));
         prefix->nd_opt_pi_preferred_time =
-            htonl(_nm_ndisc_lifetime_from_expiry(now_msec, address->expiry_preferred_msec, TRUE));
+            htonl(_nm_ndisc_lifetime_from_expiry(0, address->expiry_preferred_msec, TRUE));
         prefix->nd_opt_pi_prefix.s6_addr32[0] = address->address.s6_addr32[0];
         prefix->nd_opt_pi_prefix.s6_addr32[1] = address->address.s6_addr32[1];
         prefix->nd_opt_pi_prefix.s6_addr32[2] = 0;

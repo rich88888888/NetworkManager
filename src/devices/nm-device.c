@@ -5152,7 +5152,7 @@ ndisc_set_router_config(NMNDisc *ndisc, NMDevice *self)
     gs_unref_array GArray *addresses         = NULL;
     gs_unref_array GArray *dns_servers       = NULL;
     gs_unref_array GArray *      dns_domains = NULL;
-    gint64                       now_msec;
+    gint64                       now_msec    = 0;
     guint                        len;
     guint                        i;
     const NMDedupMultiHeadEntry *head_entry;
@@ -5160,8 +5160,6 @@ ndisc_set_router_config(NMNDisc *ndisc, NMDevice *self)
 
     if (nm_ndisc_get_node_type(ndisc) != NM_NDISC_NODE_TYPE_ROUTER)
         return;
-
-    now_msec = nm_utils_get_monotonic_timestamp_msec();
 
     head_entry = nm_ip6_config_lookup_addresses(priv->ip_config_6);
     addresses =
@@ -5185,7 +5183,7 @@ ndisc_set_router_config(NMNDisc *ndisc, NMDevice *self)
             nm_assert(addr->timestamp < G_MAXINT32);
             base = addr->timestamp;
         } else
-            base = now_msec / 1000;
+            base = nm_utils_get_monotonic_timestamp_msec_cached(&now_msec) / 1000;
 
         lifetime = nm_utils_lifetime_get(addr->timestamp,
                                          addr->lifetime,
@@ -5198,8 +5196,8 @@ ndisc_set_router_config(NMNDisc *ndisc, NMDevice *self)
         g_array_set_size(addresses, addresses->len + 1);
         ndisc_addr              = &g_array_index(addresses, NMNDiscAddress, addresses->len - 1);
         ndisc_addr->address     = addr->address;
-        ndisc_addr->expiry_msec = _nm_ndisc_lifetime_to_expiry(now_msec, lifetime);
-        ndisc_addr->expiry_preferred_msec = _nm_ndisc_lifetime_to_expiry(now_msec, preferred);
+        ndisc_addr->expiry_msec = _nm_ndisc_lifetime_to_expiry(0, lifetime);
+        ndisc_addr->expiry_preferred_msec = _nm_ndisc_lifetime_to_expiry(0, preferred);
     }
 
     len         = nm_ip6_config_get_num_nameservers(priv->ip_config_6);
@@ -5209,10 +5207,9 @@ ndisc_set_router_config(NMNDisc *ndisc, NMDevice *self)
         const struct in6_addr *nameserver = nm_ip6_config_get_nameserver(priv->ip_config_6, i);
         NMNDiscDNSServer *     ndisc_nameserver;
 
-        ndisc_nameserver          = &g_array_index(dns_servers, NMNDiscDNSServer, i);
-        ndisc_nameserver->address = *nameserver;
-        ndisc_nameserver->expiry_msec =
-            _nm_ndisc_lifetime_to_expiry(now_msec, NM_NDISC_ROUTER_LIFETIME);
+        ndisc_nameserver              = &g_array_index(dns_servers, NMNDiscDNSServer, i);
+        ndisc_nameserver->address     = *nameserver;
+        ndisc_nameserver->expiry_msec = _nm_ndisc_lifetime_to_expiry(0, NM_NDISC_ROUTER_LIFETIME);
     }
 
     len         = nm_ip6_config_get_num_searches(priv->ip_config_6);
@@ -5222,10 +5219,9 @@ ndisc_set_router_config(NMNDisc *ndisc, NMDevice *self)
         const char *      search = nm_ip6_config_get_search(priv->ip_config_6, i);
         NMNDiscDNSDomain *ndisc_search;
 
-        ndisc_search         = &g_array_index(dns_domains, NMNDiscDNSDomain, i);
-        ndisc_search->domain = (char *) search;
-        ndisc_search->expiry_msec =
-            _nm_ndisc_lifetime_to_expiry(now_msec, NM_NDISC_ROUTER_LIFETIME);
+        ndisc_search              = &g_array_index(dns_domains, NMNDiscDNSDomain, i);
+        ndisc_search->domain      = (char *) search;
+        ndisc_search->expiry_msec = _nm_ndisc_lifetime_to_expiry(0, NM_NDISC_ROUTER_LIFETIME);
     }
 
     nm_ndisc_set_config(ndisc, addresses, dns_servers, dns_domains);

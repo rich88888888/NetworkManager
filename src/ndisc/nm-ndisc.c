@@ -335,7 +335,6 @@ _ASSERT_data_gateways(const NMNDiscDataInternal *data)
         const NMNDiscGateway *item = &g_array_index(data->gateways, NMNDiscGateway, i);
 
         nm_assert(!IN6_IS_ADDR_UNSPECIFIED(&item->address));
-        nm_assert(item->expiry_msec >= 10000);
         for (j = 0; j < i; j++) {
             const NMNDiscGateway *item2 = &g_array_index(data->gateways, NMNDiscGateway, j);
 
