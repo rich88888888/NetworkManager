@@ -70,7 +70,7 @@ get_generic_capabilities(NMDevice *device)
 static gboolean
 is_available(NMDevice *device, NMDeviceCheckDevAvailableFlags flags)
 {
-    return TRUE;
+    return nm_ovsdb_is_ready(nm_ovsdb_get());
 }
 
 static gboolean
@@ -361,8 +361,32 @@ can_update_from_platform_link(NMDevice *device, const NMPlatformLink *plink)
 /*****************************************************************************/
 
 static void
+ovsdb_ready(NMOvsdb *ovsdb, NMDeviceOvsInterface *self)
+{
+    NMDevice *device = NM_DEVICE(self);
+
+    nm_device_queue_recheck_available(device,
+                                      NM_DEVICE_STATE_REASON_NONE,
+                                      NM_DEVICE_STATE_REASON_NONE);
+    nm_device_recheck_available_connections(device);
+    nm_device_emit_recheck_auto_activate(device);
+}
+static void
 nm_device_ovs_interface_init(NMDeviceOvsInterface *self)
-{}
+{
+    if (!nm_ovsdb_is_ready(nm_ovsdb_get()))
+        g_signal_connect(nm_ovsdb_get(), NM_OVSDB_READY, G_CALLBACK(ovsdb_ready), self);
+}
+
+static void
+dispose(GObject *object)
+{
+    NMDeviceOvsInterface *self = NM_DEVICE_OVS_INTERFACE(object);
+
+    g_signal_handlers_disconnect_by_func(nm_ovsdb_get(), G_CALLBACK(ovsdb_ready), self);
+
+    G_OBJECT_CLASS(nm_device_ovs_interface_parent_class)->dispose(object);
+}
 
 static const NMDBusInterfaceInfoExtended interface_info_device_ovs_interface = {
     .parent = NM_DEFINE_GDBUS_INTERFACE_INFO_INIT(
@@ -374,8 +398,11 @@ static const NMDBusInterfaceInfoExtended interface_info_device_ovs_interface = {
 static void
 nm_device_ovs_interface_class_init(NMDeviceOvsInterfaceClass *klass)
 {
+    GObjectClass *     object_class      = G_OBJECT_CLASS(klass);
     NMDBusObjectClass *dbus_object_class = NM_DBUS_OBJECT_CLASS(klass);
     NMDeviceClass *    device_class      = NM_DEVICE_CLASS(klass);
+
+    object_class->dispose = dispose;
 
     dbus_object_class->interface_infos =
         NM_DBUS_INTERFACE_INFOS(&interface_info_device_ovs_interface);
